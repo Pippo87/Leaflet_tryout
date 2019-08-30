@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Webkarte</title>
+		<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+		<script src="lib/leaflet/leaflet.js"></script>
+		<script src="lib/jquery/jquery.js"></script>
+		<link rel="stylesheet" href="lib/plugins/leaflet-control-osm-geocoder-master/Control.OSMGeocoder.css" />
+		<script src="lib/plugins/leaflet-control-osm-geocoder-master/Control.OSMGeocoder.js"></script>
+		<script src="lib/plugins/easyPrint/dist/bundle.js"></script>
+		<script src="daten/gemeindeDaten.js"></script>
+		<script src="daten/hauptstaedte.js"></script>
+		<script src="daten/bundeslaender.js"></script>
+		<script src="daten/kreise.js"></script>
+		<style>
+		* {
+			box-sizing: border-box;
+		}	
+		.spalte {
+			float: left;
+			padding: 10px;
+			height: 910px;
+		}
+		.spalte.seite {
+			width: 25%;
+			text-align: left;
+		}
+		.spalte.mitte {
+		
+			width: 50%;
+		}
+		.reihe:after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+		.footer {
+			padding: 10px;
+			text-align: center;
+		}
+		@media (max-width: 600px) {
+			.spalte.seite, .spalte.mitte {
+			width: 100%;
+			}
+		}
+		h1 {font: 16px Arial, Helvetica, sans-serif; text-align: center;}
+		 p {font: 12px Arial, Helvetica, sans-serif}
+		a:link {
+			color: #ff7f00;
+			text-decoration: none;
+		}
+		a:visited {
+			color: #ff7f00;
+			text-decoration: none;
+		}
+		hr {
+		border: 0;
+		height: 0;
+		border-top: 1px solid rgba(0, 0, 0, 0.1);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+		}
+		.leaflet-tooltip.my-labels {
+			background-color: transparent;
+			border: transparent;
+			box-shadow: none;
+			font: 14px/16px Arial, Helvetica, sans-serif;
+			font-weight: bold;
+			color: grey;
+		}
+		.info { padding: 6px 8px; font: 14px/16px Arial, Helvetica, sans-serif; color: #ff7f00; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; }
+		.legend { text-align: left; line-height: 18px; color: #555; } .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
+	</style>
+	</head>
+	<body>
+		<div class="reihe">
+			<div id="leer"; class="spalte seite"></div>
+			<div id="mapDIV"; class="spalte mitte"></div>
+			<div id="kasten"; class="spalte seite"></div>
+		</div>
+		<script>
+			var map = L.map('mapDIV', {
+				center: [51.163, 10.447],
+				zoom: 6,
+			});
+			
+			var basemap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+				}).addTo(map);
+									
+			var hauptstaedte = L.geoJson(hauptstaedte, {
+				style: function(feature) {
+					return {
+						color: '#ff7f00',
+					};
+				},
+				pointToLayer: function(feature, latlng) {
+					label = String(feature.properties.title)
+					return new L.CircleMarker(latlng, {
+						radius: 3, 
+						fillOpacity: 0.75
+					}).bindTooltip(label, {permanent: true, direction: "top", className: "my-labels"}).openTooltip();
+				}
+			});
+			
+			function style2(feature) {
+				return {
+					weight: 2,
+					opacity: 1,
+					color: 'grey',
+					fillOpacity: 0
+				};
+			}
+				
+			function style3(feature) {
+				return {
+					weight: 1,
+					opacity: 1,
+					color: 'grey',
+					fillOpacity: 0
+				};
+			}
+			
+			var bundeslaender = L.geoJson(bundeslaender, {
+				style: style2,
+			});
+			
+			var kreise = L.geoJson(kreise, {
+				style: style3,
+			});
+
+			var info = L.control();
+
+			info.onAdd = function (map) {
+				this._div = L.DomUtil.create('div', 'info');
+				this.update();
+				return this._div;
+			};
+
+			info.update = function (props) {
+				this._div.innerHTML = '<h4>Wanderungssaldo 2011-2017</h4>' +  (props ?
+					'<b>' + props.gkz_name + '</b><br />' + props.wert1 + ' je 1.000 Einwohner p.a.'
+					: 'Bewegen Sie die Maus über eine Gemeinde');
+			};
+
+			info.addTo(map);
+			
+			function getColor(d) {
+				return  d == null	?	'#f0f0f0' :
+						d > 0.5		?	'#1a9850' :
+						d > 0.3		?	'#91cf60' :
+						d > 0.1		?	'#d9ef8b' :
+						d > -0.1	?	'#ffffbf' :
+						d > -0.3	?	'#fee08b' :
+						d > -0.5   	?	'#fc8d59' :
+										'#d73027' ;
+			}
+			
+			function style(feature) {
+				return {
+					fillColor: getColor(feature.properties.wert1),
+					weight: 1,
+					opacity: 1,
+					color: 'white',
+					fillOpacity: 0.7
+				};
+			}
+
+			
+			function highlightFeature(e) {
+				var layer = e.target;
+
+				layer.setStyle({
+					weight: 5,
+					color: '#ff7f00',
+					fillOpacity: 0.7
+				});
+
+				if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+					layer.bringToFront();
+				}	
+				info.update(layer.feature.properties);
+			}			
+				
+			var geojson;
+			
+			function resetHighlight(e) {
+				geojson.resetStyle(e.target);
+				info.update();
+			}
+
+			function zoomToFeature(e) {
+				map.fitBounds(e.target.getBounds());
+			}
+
+			function onEachFeature(feature, layer) {
+				layer.on({
+					mouseover: highlightFeature,
+					mouseout: resetHighlight,
+					click: zoomToFeature
+				});
+			}
+			
+			geojson = L.geoJson(gemeinden, {
+				style: style,
+				onEachFeature: onEachFeature
+			}).addTo(map);
+			
+			var legend = L.control({position: 'bottomright'});
+
+			legend.onAdd = function (map) {
+
+				var div = L.DomUtil.create('div', 'info legend'),
+					grades = [' -0.5', ' -0.3', ' -0.1', ' 0.1', ' 0.3', ' 0.5'],
+					labels = [],
+					from, to;
+
+				for (var i = 0; i < grades.length; i++) {
+					from = grades[i];
+					to = grades[i + 1];
+
+					labels.push(
+						'<i style="background:' + getColor(from + 1) + '"> </i> ' +
+						from + (to ? '&ndash;' + to : '+'));
+				}
+
+				div.innerHTML = labels.join('<br>');
+				return div;
+			};
+
+			legend.addTo(map);
+			
+			hauptstaedte.addTo(map);
+			
+			var basemaps = {
+				"OSM": basemap,
+			};
+			
+			var overlay = {
+				"Städte" : hauptstaedte,
+				"Kreise" : kreise,
+				"Bundesländer" : bundeslaender,
+				"Gemeinden": geojson,
+			};
+			
+			var layerswitcher = L.control.layers(basemaps, overlay);
+			
+			layerswitcher.addTo(map);
+			
+			var osmGeocoder = new L.Control.OSMGeocoder({placeholder: 'Adresse oder Gemeinde', position: 'topleft', text: 'Finden!'});
+
+			map.addControl(osmGeocoder);
+			
+			var printPlugin = L.easyPrint({
+				title: 'Karte drucken/exportieren',
+				position: 'bottomleft',
+				sizeModes: ['A4Portrait'],
+				defaultSizeTitles: {A4Portrait: 'A4 Portrait'},
+				exportOnly: true,
+				filename: 'Kartenexport',	
+				hideControlContainer: true,
+				hideClasses: ['kasten']
+			}).addTo(map); 
+			
+			function Print () {
+				printer.printMap('A4Portrait', 'Kartenexport')
+			}
+						
+		</script>
+		<div class="footer">
+		<p>Kontakt | Impressum | Datenschutz</p>	
+		</div>
+	</body>
+</html>
